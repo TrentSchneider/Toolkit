@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Clamp Token Generator</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 1100px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+      }
+
+      .section {
+        margin-top: 1rem;
+        padding: 1rem;
+        background: #f8f8f8;
+        border: 1px solid #ccc;
+      }
+
+      .preset-wrapper {
+        display: flex;
+        gap: 1rem;
+      }
+
+      .titles {
+        display: flex;
+        width: calc(100% - 23px);
+      }
+
+      .titles * {
+        width: 100%;
+      }
+
+      .row {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .row input {
+        width: 100%;
+      }
+
+      .generate-button {
+        margin: 1rem 0;
+      }
+
+      .output-container:not(:has(h2)) {
+        display: none;
+      }
+
+      .copy-box {
+        display: flex;
+        /* justify-content: space-between; */
+        gap: 1rem;
+      }
+
+      .copy-box button {
+        height: fit-content;
+        margin-top: 12px;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
+        white-space: pre-wrap;
+      }
+
+      button {
+        cursor: pointer;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        z-index: 999;
+      }
+
+      .modal.hidden {
+        display: none;
+      }
+
+      .modal-content {
+        background: #fff;
+        max-width: 600px;
+        width: 100%;
+        max-height: 85vh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        border-radius: 8px;
+        position: relative;
+      }
+
+      .modal-content-inner {
+        padding: 1rem;
+        overflow-y: auto;
+      }
+
+      .close-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        border: none;
+        background: transparent;
+        font-size: 1.5rem;
+        cursor: pointer;
+        line-height: 1;
+        opacity: 0.7;
+      }
+
+      .close-btn:hover {
+        opacity: 1;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>Clamp Token Generator</h1>
+
+    <!-- PRESET -->
+    <div class="section">
+      <h3>Preset</h3>
+      <div class="preset-wrapper">
+        <select id="preset">
+          <option value="compact">Compact</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="wide">Wide</option>
+        </select>
+        <button onclick="openPresetModal()">What do these do?</button>
+      </div>
+    </div>
+
+    <!-- BASE FONT -->
+    <div class="section">
+      <h3>Base Font Size (px)</h3>
+      <input type="number" id="base" value="16" />
+    </div>
+
+    <!-- INPUT -->
+    <div class="section">
+      <h3>Clamp Values</h3>
+      <div class="titles">
+        <h4>Viewport Width (px)</h4>
+        <h4>Size Value (rem)</h4>
+      </div>
+      <div id="points"></div>
+      <button onclick="addRow()">Add Step</button>
+    </div>
+
+    <button class="generate-button" onclick="generate()">Generate</button>
+
+    <div id="output" class="section output-container"></div>
+
+    <div id="presetModal" class="modal hidden">
+      <div class="modal-content">
+        <button class="close-btn" onclick="closePresetModal()">✕</button>
+
+        <div class="modal-content-inner">
+          <h2>Preset Behavior Explained</h2>
+
+          <p>
+            Presets do NOT change breakpoints or structure. They only adjust the
+            intensity of scaling across the system.
+          </p>
+
+          <hr />
+
+          <h3>Compact</h3>
+          <ul>
+            <li>Reduces spacing growth (0.85×)</li>
+            <li>Reduces typography growth (0.9×)</li>
+            <li>Flatter, denser scaling curve</li>
+          </ul>
+
+          <h3>Balanced (Default)</h3>
+          <ul>
+            <li>No scaling modification (1×)</li>
+            <li>Pure interpolation between breakpoints</li>
+          </ul>
+
+          <h3>Wide</h3>
+          <ul>
+            <li>Increases spacing growth (1.2×)</li>
+            <li>Increases typography growth (1.25×)</li>
+            <li>More aggressive responsive scaling</li>
+          </ul>
+
+          <hr />
+
+          <p>
+            ⚠️ Presets affect slope magnitude only — not the math model itself.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ----------------------
+      // STATE
+      // ----------------------
+      const uiState = {
+        spaceRoot: true,
+        typeRoot: true,
+      };
+
+      const presets = {
+        compact: { space: 0.85, type: 0.9 },
+        balanced: { space: 1, type: 1 },
+        wide: { space: 1.2, type: 1.25 },
+      };
+
+      // init
+      addRow(320, 1);
+      addRow(768, 1.5);
+
+      function base() {
+        return parseFloat(document.getElementById("base").value);
+      }
+
+      function rem(px) {
+        return px / base();
+      }
+
+      function addRow(px = 1024, val = 2) {
+        const el = document.createElement("div");
+        el.className = "row";
+        el.innerHTML = `
+        <input type="number" value="${px}">
+        <input type="number" value="${val}">
+        <button onclick="this.parentElement.remove()">✕</button>
+    `;
+        document.getElementById("points").appendChild(el);
+      }
+
+      // ----------------------
+      // GENERATE CORE
+      // ----------------------
+      function generate() {
+        const preset = presets[document.getElementById("preset").value];
+
+        const rows = [...document.querySelectorAll(".row")];
+
+        const points = rows
+          .map((r) => ({
+            px: +r.children[0].value,
+            val: +r.children[1].value,
+            rem:
+              +r.children[0].value /
+              parseFloat(document.getElementById("base").value),
+          }))
+          .filter((p) => !isNaN(p.px) && !isNaN(p.val) && !isNaN(p.rem))
+          .sort((a, b) => a.px - b.px);
+
+        let spaceTokens = [];
+        let typeTokens = [];
+
+        for (let i = 0; i < points.length - 1; i++) {
+          const a = points[i];
+          const b = points[i + 1];
+
+          // =========================
+          // SPACING SYSTEM
+          // =========================
+          const mSpace = (b.val - a.val) / (b.rem - a.rem);
+          const bSpace = a.val - mSpace * a.rem;
+          const vwSpace = mSpace * 100 * preset.space;
+
+          spaceTokens.push({
+            name: `--space-${i + 1}`,
+            clamp: `clamp(
+  ${a.val}rem,
+  calc(${vwSpace.toFixed(4)}vw + ${bSpace.toFixed(4)}rem),
+  ${b.val}rem
+)`,
+
+            breakdown: {
+              steps: [
+                {
+                  title: "px → rem conversion",
+                  formula: "rem = px ÷ baseFontSize",
+                  explanation: `A: ${a.px}px ÷ base = ${a.rem.toFixed(4)}rem
+B: ${b.px}px ÷ base = ${b.rem.toFixed(4)}rem`,
+                },
+
+                {
+                  title: "Slope (m)",
+                  formula: "m = (y₂ - y₁) ÷ (x₂ - x₁)",
+                  explanation: `m = (${b.val} - ${a.val}) ÷ (${b.rem.toFixed(4)} - ${a.rem.toFixed(4)})
+m = ${mSpace.toFixed(6)}`,
+                },
+
+                {
+                  title: "Intercept (b)",
+                  formula: "b = y₁ - m × x₁",
+                  explanation: `b = ${a.val} - (${mSpace.toFixed(6)} × ${a.rem.toFixed(4)})
+b = ${bSpace.toFixed(6)}`,
+                },
+
+                {
+                  title: "VW conversion",
+                  formula: "vw = m × 100 × multiplier",
+                  explanation: `vw = ${mSpace.toFixed(6)} × 100 × ${preset.space}
+vw = ${vwSpace.toFixed(4)}vw`,
+                },
+
+                {
+                  title: "Final clamp",
+                  formula: "clamp(min, calc(vw + b), max)",
+                  explanation: `clamp(${a.val}rem, calc(${vwSpace.toFixed(4)}vw + ${bSpace.toFixed(6)}rem), ${b.val}rem)`,
+                },
+              ],
+            },
+          });
+
+          // =========================
+          // TYPOGRAPHY SYSTEM
+          // =========================
+          const aT = a.val * preset.type;
+          const bT = b.val * preset.type;
+
+          const mType = (bT - aT) / (b.rem - a.rem);
+          const bType = aT - mType * a.rem;
+          const vwType = mType * 100;
+
+          typeTokens.push({
+            name: `--text-${i + 1}`,
+            clamp: `clamp(
+  ${aT.toFixed(2)}rem,
+  calc(${vwType.toFixed(4)}vw + ${bType.toFixed(4)}rem),
+  ${bT.toFixed(2)}rem
+)`,
+
+            breakdown: {
+              steps: [
+                {
+                  title: "Typography scaling",
+                  formula: "value × typeMultiplier",
+                  explanation: `A: ${a.val} × ${preset.type} = ${aT.toFixed(2)}rem
+B: ${b.val} × ${preset.type} = ${bT.toFixed(2)}rem`,
+                },
+
+                {
+                  title: "Slope (m)",
+                  formula: "m = (y₂ - y₁) ÷ (x₂ - x₁)",
+                  explanation: `m = (${bT.toFixed(2)} - ${aT.toFixed(2)}) ÷ (${b.rem.toFixed(4)} - ${a.rem.toFixed(4)})
+m = ${mType.toFixed(6)}`,
+                },
+
+                {
+                  title: "Intercept (b)",
+                  formula: "b = y₁ - m × x₁",
+                  explanation: `b = ${aT.toFixed(2)} - (${mType.toFixed(6)} × ${a.rem.toFixed(4)})
+b = ${bType.toFixed(6)}`,
+                },
+
+                {
+                  title: "VW conversion",
+                  formula: "vw = m × 100",
+                  explanation: `vw = ${mType.toFixed(6)} × 100
+vw = ${vwType.toFixed(4)}vw`,
+                },
+
+                {
+                  title: "Final clamp",
+                  formula: "clamp(min, calc(vw + b), max)",
+                  explanation: `clamp(${aT.toFixed(2)}rem, calc(${vwType.toFixed(4)}vw + ${bType.toFixed(6)}rem), ${bT.toFixed(2)}rem)`,
+                },
+              ],
+            },
+          });
+        }
+
+        render(spaceTokens, typeTokens);
+      }
+      // ----------------------
+      // RENDER
+      // ----------------------
+      function render(space, type) {
+        const spaceWrap = document.getElementById("spaceRoot")?.checked ?? true;
+        const typeWrap = document.getElementById("typeRoot")?.checked ?? true;
+
+        const spaceCSS = space
+          .map((t) => `  ${t.name}: ${t.clamp};`)
+          .join("\n");
+        const typeCSS = type.map((t) => `  ${t.name}: ${t.clamp};`).join("\n");
+
+        const spaceOut = spaceWrap ? `:root {\n${spaceCSS}\n}` : spaceCSS;
+        const typeOut = typeWrap ? `:root {\n${typeCSS}\n}` : typeCSS;
+
+        document.getElementById("output").innerHTML = `
+
+<h2>Spacing Tokens</h2>
+<label><input type="checkbox" id="spaceRoot" ${spaceWrap ? "checked" : ""} onchange="generate()"> :root wrapper</label>
+
+<div class="copy-box">
+<pre id="spaceCode">${spaceOut}</pre>
+<button onclick="copy('spaceCode')">Copy</button>
+</div>
+
+<h2>Typography Tokens</h2>
+<label><input type="checkbox" id="typeRoot" ${typeWrap ? "checked" : ""} onchange="generate()"> :root wrapper</label>
+
+<div class="copy-box">
+<pre id="typeCode">${typeOut}</pre>
+<button onclick="copy('typeCode')">Copy</button>
+</div>
+
+<h2>Spacing Breakdown</h2>
+
+${space
+  .map(
+    (t, i) => `
+<div class="section">
+<strong>Space ${i + 1}</strong><br><br>
+
+${t.breakdown.steps
+  .map(
+    (step) => `
+<b>${step.title}</b><br>
+Formula: <code>${step.formula}</code><br>
+<pre>${step.explanation}</pre><br>
+`,
+  )
+  .join("")}
+
+</div>
+`,
+  )
+  .join("")}
+
+<h2>Typography Breakdown</h2>
+
+${type
+  .map(
+    (t, i) => `
+<div class="section">
+<strong>Text ${i + 1}</strong><br><br>
+
+${t.breakdown.steps
+  .map(
+    (step) => `
+<b>${step.title}</b><br>
+Formula: <code>${step.formula}</code><br>
+<pre>${step.explanation}</pre><br>
+`,
+  )
+  .join("")}
+
+</div>
+`,
+  )
+  .join("")}
+`;
+      }
+      function render(space, type) {
+        const spaceWrap = document.getElementById("spaceRoot")?.checked ?? true;
+        const typeWrap = document.getElementById("typeRoot")?.checked ?? true;
+
+        const spaceCSS = space
+          .map((t) => `  ${t.name}: ${t.clamp};`)
+          .join("\n");
+        const typeCSS = type.map((t) => `  ${t.name}: ${t.clamp};`).join("\n");
+
+        const spaceOut = spaceWrap ? `:root {\n${spaceCSS}\n}` : spaceCSS;
+        const typeOut = typeWrap ? `:root {\n${typeCSS}\n}` : typeCSS;
+
+        document.getElementById("output").innerHTML = `
+
+<h2>Spacing Tokens</h2>
+<label><input type="checkbox" id="spaceRoot" ${spaceWrap ? "checked" : ""} onchange="generate()"> :root wrapper</label>
+
+<div class="copy-box">
+<pre id="spaceCode">${spaceOut}</pre>
+<button onclick="copy('spaceCode')">Copy</button>
+</div>
+
+<h2>Typography Tokens</h2>
+<label><input type="checkbox" id="typeRoot" ${typeWrap ? "checked" : ""} onchange="generate()"> :root wrapper</label>
+
+<div class="copy-box">
+<pre id="typeCode">${typeOut}</pre>
+<button onclick="copy('typeCode')">Copy</button>
+</div>
+
+<h2>Spacing Breakdown</h2>
+
+${space
+  .map(
+    (t, i) => `
+<div class="section">
+<strong>Space ${i + 1}</strong><br><br>
+
+${t.breakdown.steps
+  .map(
+    (step) => `
+<b>${step.title}</b><br>
+Formula: <code>${step.formula}</code><br>
+<pre>${step.explanation}</pre><br>
+`,
+  )
+  .join("")}
+
+</div>
+`,
+  )
+  .join("")}
+
+<h2>Typography Breakdown</h2>
+
+${type
+  .map(
+    (t, i) => `
+<div class="section">
+<strong>Text ${i + 1}</strong><br><br>
+
+${t.breakdown.steps
+  .map(
+    (step) => `
+<b>${step.title}</b><br>
+Formula: <code>${step.formula}</code><br>
+<pre>${step.explanation}</pre><br>
+`,
+  )
+  .join("")}
+
+</div>
+`,
+  )
+  .join("")}
+`;
+      }
+
+      // ----------------------
+      // UI helpers
+      // ----------------------
+      function toggle(key, val) {
+        uiState[key] = val;
+        generate();
+      }
+
+      function presetSelect() {
+        return document.getElementById("preset");
+      }
+
+      function copy() {
+        navigator.clipboard.writeText(
+          document.getElementById("code").innerText,
+        );
+      }
+
+      function openPresetModal() {
+        document.getElementById("presetModal").classList.remove("hidden");
+      }
+
+      function closePresetModal() {
+        document.getElementById("presetModal").classList.add("hidden");
+      }
+
+      // click outside to close
+      document.addEventListener("click", (e) => {
+        const modal = document.getElementById("presetModal");
+        if (e.target === modal) {
+          closePresetModal();
+        }
+      });
+    </script>
+  </body>
+</html>

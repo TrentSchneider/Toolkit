@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CSS Clamp Calculator</title>
+
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.5;
+      }
+
+      h1,
+      h2 {
+        margin-top: 2rem;
+      }
+
+      .form-group {
+        margin-bottom: 1rem;
+      }
+
+      label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 0.25rem;
+      }
+
+      input {
+        width: 100%;
+        max-width: 300px;
+        padding: 0.5rem;
+        font-size: 1rem;
+      }
+
+      button {
+        margin-top: 1rem;
+        padding: 0.75rem 1.5rem;
+        font-size: 1rem;
+        cursor: pointer;
+      }
+
+      .output {
+        margin-top: 2rem;
+        padding: 1rem;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        background: #f8f8f8;
+      }
+
+      code {
+        display: block;
+        padding: 1rem;
+        background: #eee;
+        overflow-x: auto;
+        margin: 1rem 0;
+      }
+
+      .step {
+        margin-bottom: 1rem;
+      }
+
+      pre {
+        background: #eee;
+        padding: 1rem;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+
+      /* Copy button UI */
+      .copy-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+      }
+
+      .copy-btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.9rem;
+        cursor: pointer;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        white-space: nowrap;
+      }
+
+      .copy-btn:hover {
+        background: #f0f0f0;
+      }
+    </style>
+  </head>
+
+  <body>
+    <h1>CSS Clamp Calculator</h1>
+
+    <p>
+      Enter viewport and size ranges to generate a fluid
+      <code>clamp()</code> formula with full derivation, verification, and copy
+      support.
+    </p>
+
+    <div class="form-group">
+      <label>Minimum Viewport Width (px)</label>
+      <input type="number" id="minViewport" value="1300" />
+    </div>
+
+    <div class="form-group">
+      <label>Maximum Viewport Width (px)</label>
+      <input type="number" id="maxViewport" value="1800" />
+    </div>
+
+    <div class="form-group">
+      <label>Minimum Value (rem)</label>
+      <input type="number" id="minValue" value="2" step="0.01" />
+    </div>
+
+    <div class="form-group">
+      <label>Maximum Value (rem)</label>
+      <input type="number" id="maxValue" value="5" step="0.01" />
+    </div>
+
+    <div class="form-group">
+      <label>Base Font Size (px)</label>
+      <input type="number" id="baseFontSize" value="16" step="1" />
+    </div>
+
+    <button id="calculate">Generate Clamp</button>
+
+    <div id="results" class="output" hidden></div>
+
+    <script>
+      document.getElementById("calculate").addEventListener("click", () => {
+        const minViewportPx = parseFloat(
+          document.getElementById("minViewport").value,
+        );
+        const maxViewportPx = parseFloat(
+          document.getElementById("maxViewport").value,
+        );
+        const minValue = parseFloat(document.getElementById("minValue").value);
+        const maxValue = parseFloat(document.getElementById("maxValue").value);
+        const baseFontSize = parseFloat(
+          document.getElementById("baseFontSize").value,
+        );
+
+        // Step 1: px → rem
+        const minViewportRem = minViewportPx / baseFontSize;
+        const maxViewportRem = maxViewportPx / baseFontSize;
+
+        // Step 2: slope
+        const slope = (maxValue - minValue) / (maxViewportRem - minViewportRem);
+
+        // Step 3: vw coefficient
+        const vwCoefficient = slope * 100;
+
+        // Step 4: intercept
+        const intercept = minValue - slope * minViewportRem;
+
+        const roundedVw = Number(vwCoefficient.toFixed(4));
+        const roundedIntercept = Number(intercept.toFixed(4));
+
+        const clampFormula = `clamp(${minValue}rem, calc(${roundedVw}vw ${roundedIntercept >= 0 ? "+" : "-"} ${Math.abs(roundedIntercept)}rem), ${maxValue}rem)`;
+
+        // Verification
+        const minVW = vwCoefficient * (minViewportPx / 100);
+        const maxVW = vwCoefficient * (maxViewportPx / 100);
+
+        const minVerification = minVW / baseFontSize + intercept;
+
+        const maxVerification = maxVW / baseFontSize + intercept;
+
+        const minPass = Math.abs(minVerification - minValue) < 0.0001;
+
+        const maxPass = Math.abs(maxVerification - maxValue) < 0.0001;
+
+        const results = document.getElementById("results");
+        results.hidden = false;
+
+        results.innerHTML = `
+        <h2>Generated Clamp</h2>
+
+        <div class="copy-row">
+            <code id="clampOutput">${clampFormula}</code>
+            <button class="copy-btn" onclick="copyClamp()">Copy</button>
+        </div>
+
+        <h2>Calculation Breakdown</h2>
+
+        <div class="step">
+            <strong>1. Convert viewport widths to rem</strong><br>
+            px ÷ baseFontSize<br><br>
+
+            ${minViewportPx}px ÷ ${baseFontSize} = ${minViewportRem.toFixed(4)}rem<br>
+            ${maxViewportPx}px ÷ ${baseFontSize} = ${maxViewportRem.toFixed(4)}rem
+        </div>
+
+        <div class="step">
+            <strong>2. Calculate slope</strong><br>
+            (${maxValue} - ${minValue}) / (${maxViewportRem.toFixed(4)} - ${minViewportRem.toFixed(4)})<br>
+            = ${slope.toFixed(6)}
+        </div>
+
+        <div class="step">
+            <strong>3. Convert slope to vw coefficient</strong><br>
+            slope × 100<br>
+            = ${slope.toFixed(6)} × 100<br>
+            = ${roundedVw}
+        </div>
+
+        <div class="step">
+            <strong>4. Calculate intercept</strong><br>
+            intercept = minValue - (slope × minViewportRem)<br><br>
+
+            = ${minValue} - (${slope.toFixed(6)} × ${minViewportRem.toFixed(4)})<br>
+            = ${minValue} - ${(slope * minViewportRem).toFixed(6)}<br>
+            = ${roundedIntercept}
+        </div>
+
+        <div class="step">
+            <strong>5. Linear equation</strong><br>
+            value = ${roundedVw}vw ${roundedIntercept >= 0 ? "+" : "-"} ${Math.abs(roundedIntercept)}rem
+        </div>
+
+        <div class="step">
+            <strong>6. Clamp function</strong><br>
+            clamp(${minValue}rem, calc(${roundedVw}vw ${roundedIntercept >= 0 ? "+" : "-"} ${Math.abs(roundedIntercept)}rem), ${maxValue}rem)
+        </div>
+
+        <h2>Verification</h2>
+
+        <div class="step">
+            <strong>Minimum Viewport Check</strong><br>
+            Result: ${minVerification.toFixed(4)}rem<br>
+            Expected: ${minValue}rem<br>
+            ${minPass ? "✅ PASS" : "❌ FAIL"}
+        </div>
+
+        <div class="step">
+            <strong>Maximum Viewport Check</strong><br>
+            Result: ${maxVerification.toFixed(4)}rem<br>
+            Expected: ${maxValue}rem<br>
+            ${maxPass ? "✅ PASS" : "❌ FAIL"}
+        </div>
+
+        <h2>Pattern</h2>
+
+        <pre>
+px → rem = px ÷ baseFontSize
+
+slope =
+(maxValue - minValue) /
+(maxViewportRem - minViewportRem)
+
+vwCoefficient =
+slope × 100
+
+intercept =
+minValue - (slope × minViewportRem)
+
+clamp(
+    minValue,
+    calc(vwCoefficientvw + intercept),
+    maxValue
+)
+        </pre>
+    `;
+      });
+
+      // Copy to clipboard
+      window.copyClamp = async function () {
+        const text = document.getElementById("clampOutput").innerText;
+
+        try {
+          await navigator.clipboard.writeText(text);
+          alert("Clamp copied to clipboard");
+        } catch (err) {
+          const temp = document.createElement("textarea");
+          temp.value = text;
+          document.body.appendChild(temp);
+          temp.select();
+          document.execCommand("copy");
+          document.body.removeChild(temp);
+
+          alert("Clamp copied (fallback method)");
+        }
+      };
+    </script>
+  </body>
+</html>
