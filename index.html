@@ -1,15 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Toolkit</title>
-</head>
-<body>
-    <h1>Toolkit</h1>
-    <h2>Choose A Tool</h2>
-    <div>
-        <a href="./clampCalculator/index.html">Clamp Calculator</a>
-    </div>
-</body>
+    <link rel="stylesheet" href="./assets/css/style.css" />
+  </head>
+  <body>
+    <main class="site-shell">
+      <header class="page-header">
+        <p class="eyebrow">Developer toolkit</p>
+        <h1>Toolkit</h1>
+        <p class="page-intro">Small, practical tools for building on the web.</p>
+      </header>
+
+      <section class="tool-grid" aria-label="Available tools">
+        <a class="tool-card" href="./clampCalculator/index.html">
+          <span class="tool-card__index">01 / CSS</span>
+          <span class="tool-card__title">Clamp Calculator</span>
+          <span class="tool-card__description">
+            Create fluid CSS values with a basic calculator or token generator.
+          </span>
+          <span class="tool-card__action">Open tool</span>
+        </a>
+      </section>
+    </main>
+  </body>
 </html>

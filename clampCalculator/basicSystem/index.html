@@ -5,133 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CSS Clamp Calculator</title>
 
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        max-width: 900px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        line-height: 1.5;
-      }
-
-      h1,
-      h2 {
-        margin-top: 2rem;
-      }
-
-      .form-group {
-        margin-bottom: 1rem;
-      }
-
-      label {
-        display: block;
-        font-weight: bold;
-        margin-bottom: 0.25rem;
-      }
-
-      input {
-        width: 100%;
-        max-width: 300px;
-        padding: 0.5rem;
-        font-size: 1rem;
-      }
-
-      button {
-        margin-top: 1rem;
-        padding: 0.75rem 1.5rem;
-        font-size: 1rem;
-        cursor: pointer;
-      }
-
-      .output {
-        margin-top: 2rem;
-        padding: 1rem;
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        background: #f8f8f8;
-      }
-
-      code {
-        display: block;
-        padding: 1rem;
-        background: #eee;
-        overflow-x: auto;
-        margin: 1rem 0;
-      }
-
-      .step {
-        margin-bottom: 1rem;
-      }
-
-      pre {
-        background: #eee;
-        padding: 1rem;
-        overflow-x: auto;
-        white-space: pre-wrap;
-        font-family: monospace;
-      }
-
-      /* Copy button UI */
-      .copy-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-      }
-
-      .copy-btn {
-        padding: 0.4rem 0.8rem;
-        font-size: 0.9rem;
-        cursor: pointer;
-        border: 1px solid #ccc;
-        background: white;
-        border-radius: 4px;
-        white-space: nowrap;
-      }
-
-      .copy-btn:hover {
-        background: #f0f0f0;
-      }
-    </style>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
   </head>
 
   <body>
-    <h1>CSS Clamp Calculator</h1>
+    <main class="site-shell">
+      <a class="breadcrumb" href="../index.html">Clamp Calculator</a>
+      <header class="page-header">
+        <p class="eyebrow">CSS / Single value</p>
+        <h1>CSS Clamp Calculator</h1>
+      </header>
 
-    <p>
-      Enter viewport and size ranges to generate a fluid
-      <code>clamp()</code> formula with full derivation, verification, and copy
-      support.
-    </p>
+      <p class="page-intro">
+        Enter viewport and size ranges to generate a fluid
+        <code>clamp()</code> formula with full derivation, verification, and
+        copy support.
+      </p>
 
-    <div class="form-group">
-      <label>Minimum Viewport Width (px)</label>
-      <input type="number" id="minViewport" value="1300" />
-    </div>
+      <div class="form-group">
+        <label for="minViewport">Minimum Viewport Width (px)</label>
+        <input type="number" id="minViewport" value="1300" />
+      </div>
 
-    <div class="form-group">
-      <label>Maximum Viewport Width (px)</label>
-      <input type="number" id="maxViewport" value="1800" />
-    </div>
+      <div class="form-group">
+        <label for="maxViewport">Maximum Viewport Width (px)</label>
+        <input type="number" id="maxViewport" value="1800" />
+      </div>
 
-    <div class="form-group">
-      <label>Minimum Value (rem)</label>
-      <input type="number" id="minValue" value="2" step="0.01" />
-    </div>
+      <div class="form-group">
+        <label for="minValue">Minimum Value (rem)</label>
+        <input type="number" id="minValue" value="2" step="0.01" />
+      </div>
 
-    <div class="form-group">
-      <label>Maximum Value (rem)</label>
-      <input type="number" id="maxValue" value="5" step="0.01" />
-    </div>
+      <div class="form-group">
+        <label for="maxValue">Maximum Value (rem)</label>
+        <input type="number" id="maxValue" value="5" step="0.01" />
+      </div>
 
-    <div class="form-group">
-      <label>Base Font Size (px)</label>
-      <input type="number" id="baseFontSize" value="16" step="1" />
-    </div>
+      <div class="form-group">
+        <label for="baseFontSize">Base Font Size (px)</label>
+        <input type="number" id="baseFontSize" value="16" step="1" />
+      </div>
 
-    <button id="calculate">Generate Clamp</button>
+      <button id="calculate">Generate Clamp</button>
 
-    <div id="results" class="output" hidden></div>
+      <div id="results" class="output" hidden></div>
+    </main>
 
     <script>
       document.getElementById("calculate").addEventListener("click", () => {

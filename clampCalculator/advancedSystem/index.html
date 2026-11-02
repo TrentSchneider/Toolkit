@@ -5,203 +5,94 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Clamp Token Generator</title>
 
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        max-width: 1100px;
-        margin: 2rem auto;
-        padding: 0 1rem;
-      }
-
-      .section {
-        margin-top: 1rem;
-        padding: 1rem;
-        background: #f8f8f8;
-        border: 1px solid #ccc;
-      }
-
-      .preset-wrapper {
-        display: flex;
-        gap: 1rem;
-      }
-
-      .titles {
-        display: flex;
-        width: calc(100% - 23px);
-      }
-
-      .titles * {
-        width: 100%;
-      }
-
-      .row {
-        display: flex;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-      }
-
-      .row input {
-        width: 100%;
-      }
-
-      .generate-button {
-        margin: 1rem 0;
-      }
-
-      .output-container:not(:has(h2)) {
-        display: none;
-      }
-
-      .copy-box {
-        display: flex;
-        /* justify-content: space-between; */
-        gap: 1rem;
-      }
-
-      .copy-box button {
-        height: fit-content;
-        margin-top: 12px;
-      }
-
-      pre {
-        background: #eee;
-        padding: 1rem;
-        white-space: pre-wrap;
-      }
-
-      button {
-        cursor: pointer;
-      }
-
-      .modal {
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.5);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1rem;
-        z-index: 999;
-      }
-
-      .modal.hidden {
-        display: none;
-      }
-
-      .modal-content {
-        background: #fff;
-        max-width: 600px;
-        width: 100%;
-        max-height: 85vh;
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-        border-radius: 8px;
-        position: relative;
-      }
-
-      .modal-content-inner {
-        padding: 1rem;
-        overflow-y: auto;
-      }
-
-      .close-btn {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        border: none;
-        background: transparent;
-        font-size: 1.5rem;
-        cursor: pointer;
-        line-height: 1;
-        opacity: 0.7;
-      }
-
-      .close-btn:hover {
-        opacity: 1;
-      }
-    </style>
+    <link rel="stylesheet" href="../../assets/css/style.css" />
   </head>
 
   <body>
-    <h1>Clamp Token Generator</h1>
+    <main class="site-shell">
+      <a class="breadcrumb" href="../index.html">Clamp Calculator</a>
+      <header class="page-header">
+        <p class="eyebrow">CSS / Design tokens</p>
+        <h1>Clamp Token Generator</h1>
+      </header>
 
-    <!-- PRESET -->
-    <div class="section">
-      <h3>Preset</h3>
-      <div class="preset-wrapper">
-        <select id="preset">
-          <option value="compact">Compact</option>
-          <option value="balanced" selected>Balanced</option>
-          <option value="wide">Wide</option>
-        </select>
-        <button onclick="openPresetModal()">What do these do?</button>
-      </div>
-    </div>
-
-    <!-- BASE FONT -->
-    <div class="section">
-      <h3>Base Font Size (px)</h3>
-      <input type="number" id="base" value="16" />
-    </div>
-
-    <!-- INPUT -->
-    <div class="section">
-      <h3>Clamp Values</h3>
-      <div class="titles">
-        <h4>Viewport Width (px)</h4>
-        <h4>Size Value (rem)</h4>
-      </div>
-      <div id="points"></div>
-      <button onclick="addRow()">Add Step</button>
-    </div>
-
-    <button class="generate-button" onclick="generate()">Generate</button>
-
-    <div id="output" class="section output-container"></div>
-
-    <div id="presetModal" class="modal hidden">
-      <div class="modal-content">
-        <button class="close-btn" onclick="closePresetModal()">✕</button>
-
-        <div class="modal-content-inner">
-          <h2>Preset Behavior Explained</h2>
-
-          <p>
-            Presets do NOT change breakpoints or structure. They only adjust the
-            intensity of scaling across the system.
-          </p>
-
-          <hr />
-
-          <h3>Compact</h3>
-          <ul>
-            <li>Reduces spacing growth (0.85×)</li>
-            <li>Reduces typography growth (0.9×)</li>
-            <li>Flatter, denser scaling curve</li>
-          </ul>
-
-          <h3>Balanced (Default)</h3>
-          <ul>
-            <li>No scaling modification (1×)</li>
-            <li>Pure interpolation between breakpoints</li>
-          </ul>
-
-          <h3>Wide</h3>
-          <ul>
-            <li>Increases spacing growth (1.2×)</li>
-            <li>Increases typography growth (1.25×)</li>
-            <li>More aggressive responsive scaling</li>
-          </ul>
-
-          <hr />
-
-          <p>
-            ⚠️ Presets affect slope magnitude only — not the math model itself.
-          </p>
+      <!-- PRESET -->
+      <div class="section">
+        <h3>Preset</h3>
+        <div class="preset-wrapper">
+          <select id="preset">
+            <option value="compact">Compact</option>
+            <option value="balanced" selected>Balanced</option>
+            <option value="wide">Wide</option>
+          </select>
+          <button onclick="openPresetModal()">What do these do?</button>
         </div>
       </div>
-    </div>
+
+      <!-- BASE FONT -->
+      <div class="section">
+        <h3>Base Font Size (px)</h3>
+        <input type="number" id="base" value="16" />
+      </div>
+
+      <!-- INPUT -->
+      <div class="section">
+        <h3>Clamp Values</h3>
+        <div class="titles">
+          <h4>Viewport Width (px)</h4>
+          <h4>Size Value (rem)</h4>
+        </div>
+        <div id="points"></div>
+        <button onclick="addRow()">Add Step</button>
+      </div>
+
+      <button class="generate-button" onclick="generate()">Generate</button>
+
+      <div id="output" class="section output-container"></div>
+
+      <div id="presetModal" class="modal hidden">
+        <div class="modal-content">
+          <button class="close-btn" onclick="closePresetModal()">✕</button>
+
+          <div class="modal-content-inner">
+            <h2>Preset Behavior Explained</h2>
+
+            <p>
+              Presets do NOT change breakpoints or structure. They only adjust
+              the intensity of scaling across the system.
+            </p>
+
+            <hr />
+
+            <h3>Compact</h3>
+            <ul>
+              <li>Reduces spacing growth (0.85×)</li>
+              <li>Reduces typography growth (0.9×)</li>
+              <li>Flatter, denser scaling curve</li>
+            </ul>
+
+            <h3>Balanced (Default)</h3>
+            <ul>
+              <li>No scaling modification (1×)</li>
+              <li>Pure interpolation between breakpoints</li>
+            </ul>
+
+            <h3>Wide</h3>
+            <ul>
+              <li>Increases spacing growth (1.2×)</li>
+              <li>Increases typography growth (1.25×)</li>
+              <li>More aggressive responsive scaling</li>
+            </ul>
+
+            <hr />
+
+            <p>
+              ⚠️ Presets affect slope magnitude only — not the math model itself.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
 
     <script>
       // ----------------------
