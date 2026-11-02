@@ -1,10 +1,9 @@
-const CACHE_NAME = "toolkit-pwa-v2";
+const CACHE_NAME = "toolkit-pwa-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./clampCalculator/index.html",
-  "./clampCalculator/basicSystem/index.html",
-  "./clampCalculator/advancedSystem/index.html",
+  "./fluidFontGenerator/index.html",
   "./manifest.webmanifest",
   "./assets/favicon.ico",
   "./assets/css/style.css",

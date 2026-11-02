@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0a0f18" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Toolkit" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Fluid Font Generator</title>
+    <link rel="icon" href="../assets/favicon.ico" sizes="any" />
+    <link rel="manifest" href="../manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="../assets/pwa-icons/toolkit-apple-touch.png" />
+    <link rel="stylesheet" href="../assets/css/style.css" />
+    <style>
+      /* Mirror .form-group's layout so titles sit above the inputs */
+      .sizes-titles {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+        gap: 1rem;
+        padding: 0 calc(1rem + 1px);
+      }
+      .sizes-titles__cols,
+      #sizes .row {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        gap: 0.75rem;
+      }
+      #sizes .row {
+        margin-bottom: 0;
+      }
+      @media (max-width: 600px) {
+        .sizes-titles {
+          grid-template-columns: 1fr;
+        }
+        .sizes-titles > span {
+          display: none;
+        }
+      }
+    </style>
+    <script src="../assets/js/pwa.js" defer></script>
+  </head>
+
+  <body>
+    <main class="site-shell">
+      <a class="breadcrumb" href="../index.html">Toolkit</a>
+      <header class="page-header">
+        <p class="eyebrow">CSS / Responsive type</p>
+        <h1>Fluid Font Generator</h1>
+      </header>
+
+      <p class="page-intro">
+        Generate fluid <code>clamp()</code> font sizes for your base text and
+        headings. Pick an industry preset or enter your own sizes.
+      </p>
+
+      <div class="section">
+        <h3>Preset</h3>
+        <div class="preset-wrapper">
+          <select id="preset" aria-label="Font preset">
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+        <p id="presetNote" class="type-sample"></p>
+      </div>
+
+      <div class="section">
+        <h3>Viewport &amp; Root</h3>
+        <div class="field-grid">
+          <label>Min viewport (px)<input type="number" id="minViewport" value="320" /></label>
+          <label>Max viewport (px)<input type="number" id="maxViewport" value="1240" /></label>
+          <label>Root font size (px)<input type="number" id="rootSize" value="16" /></label>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3>Font Sizes (px)</h3>
+        <div class="titles sizes-titles">
+          <span></span>
+          <div class="sizes-titles__cols">
+            <h4>Min size</h4>
+            <h4>Max size</h4>
+          </div>
+        </div>
+        <div id="sizes"></div>
+      </div>
+
+      <div class="section">
+        <h3>Output</h3>
+        <div class="field-grid">
+          <label
+            >Output unit
+            <select id="unit">
+              <option value="rem">rem</option>
+              <option value="px">px</option>
+            </select>
+          </label>
+          <label
+            >CSS variable base name
+            <input type="text" id="baseName" value="font" spellcheck="false" />
+          </label>
+        </div>
+      </div>
+
+      <button id="generate" class="generate-button">Generate</button>
+
+      <div id="output" class="output" hidden></div>
+    </main>
+
+    <script>
+      const STEPS = [
+        { key: "base", label: "Base font", name: "--font-base" },
+        { key: "h1", label: "Heading 1", name: "--font-h1" },
+        { key: "h2", label: "Heading 2", name: "--font-h2" },
+        { key: "h3", label: "Heading 3", name: "--font-h3" },
+        { key: "h4", label: "Heading 4", name: "--font-h4" },
+        { key: "h5", label: "Heading 5", name: "--font-h5" },
+        { key: "h6", label: "Heading 6", name: "--font-h6" },
+      ];
+
+      const r2 = (n) => Math.round(n * 100) / 100;
+
+      // h6 = base × ratio, up to h1 = base × ratio^6
+      function scale(base, ratio) {
+        const out = { base: r2(base) };
+        ["h6", "h5", "h4", "h3", "h2", "h1"].forEach((k, i) => {
+          out[k] = r2(base * Math.pow(ratio, i + 1));
+        });
+        return out;
+      }
+
+      const PRESETS = {
+        utopia: {
+          label: "Utopia (Minor Third → Major Third)",
+          note: "Base 16→18px, ratio 1.2→1.25, viewports 320–1240px.",
+          viewport: [320, 1240],
+          min: scale(16, 1.2),
+          max: scale(18, 1.25),
+        },
+        minorThird: {
+          label: "Minor Third (1.2)",
+          note: "Base 16→18px with a constant 1.2 ratio.",
+          viewport: [320, 1240],
+          min: scale(16, 1.2),
+          max: scale(18, 1.2),
+        },
+        majorThird: {
+          label: "Major Third (1.25)",
+          note: "Base 16→18px with a constant 1.25 ratio.",
+          viewport: [320, 1240],
+          min: scale(16, 1.25),
+          max: scale(18, 1.25),
+        },
+        perfectFourth: {
+          label: "Perfect Fourth (1.333)",
+          note: "Base 16→20px with a constant 1.333 ratio.",
+          viewport: [320, 1240],
+          min: scale(16, 1.333),
+          max: scale(20, 1.333),
+        },
+        bootstrap: {
+          label: "Bootstrap 5",
+          note: "Bootstrap's heading sizes (h1 2.5rem … h6 1rem), scaled down on small screens.",
+          viewport: [576, 1200],
+          min: { base: 16, h1: 22, h2: 20, h3: 18, h4: 16, h5: 16, h6: 16 },
+          max: { base: 16, h1: 40, h2: 32, h3: 28, h4: 24, h5: 20, h6: 16 },
+        },
+        tailwind: {
+          label: "Tailwind CSS",
+          note: "Base text-base, headings text-4xl … text-lg, scaled down on small screens.",
+          viewport: [640, 1280],
+          min: { base: 16, h1: 30, h2: 24, h3: 20, h4: 18, h5: 16, h6: 14 },
+          max: { base: 16, h1: 36, h2: 30, h3: 24, h4: 20, h5: 18, h6: 16 },
+        },
+        material: {
+          label: "Material Design 3",
+          note: "Body large 16px with headline sizes (small → large).",
+          viewport: [360, 1440],
+          min: { base: 16, h1: 32, h2: 28, h3: 24, h4: 22, h5: 20, h6: 16 },
+          max: { base: 16, h1: 57, h2: 45, h3: 36, h4: 32, h5: 28, h6: 24 },
+        },
+      };
+
+      const $ = (id) => document.getElementById(id);
+
+      // Build form
+      $("sizes").innerHTML = STEPS.map(
+        (s) => `
+        <div class="form-group">
+          <label for="min-${s.key}">${s.label}</label>
+          <div class="row">
+            <input type="number" id="min-${s.key}" step="0.01" aria-label="${s.label} min px" />
+            <input type="number" id="max-${s.key}" step="0.01" aria-label="${s.label} max px" />
+          </div>
+        </div>`,
+      ).join("");
+
+      Object.entries(PRESETS).forEach(([key, p]) => {
+        $("preset").add(new Option(p.label, key));
+      });
+
+      function applyPreset(key) {
+        const p = PRESETS[key];
+        $("presetNote").textContent = p ? p.note : "Enter your own values.";
+        if (!p) return;
+        $("minViewport").value = p.viewport[0];
+        $("maxViewport").value = p.viewport[1];
+        STEPS.forEach((s) => {
+          $(`min-${s.key}`).value = p.min[s.key];
+          $(`max-${s.key}`).value = p.max[s.key];
+        });
+      }
+
+      $("preset").addEventListener("change", (e) => {
+        applyPreset(e.target.value);
+        if (!$("output").hidden) generate();
+      });
+
+      // Switch to Custom when the user edits a value manually
+      document.addEventListener("input", (e) => {
+        if (
+          e.target.id !== "preset" &&
+          !["unit", "baseName"].includes(e.target.id) &&
+          e.target.closest("#sizes, .field-grid")
+        ) {
+          $("preset").value = "custom";
+          $("presetNote").textContent = "Enter your own values.";
+        }
+      });
+
+      const sign = (n) => (n >= 0 ? "+" : "-");
+
+      function varBase(id, fallback) {
+        const cleaned = $(id)
+          .value.trim()
+          .replace(/^-+/, "")
+          .replace(/[^a-zA-Z0-9_-]+/g, "-");
+        return `--${cleaned || fallback}`;
+      }
+
+      ["unit", "baseName"].forEach((id) =>
+        $(id).addEventListener("input", () => {
+          if (!$("output").hidden) generate();
+        }),
+      );
+
+      function generate() {
+        const minVp = parseFloat($("minViewport").value);
+        const maxVp = parseFloat($("maxViewport").value);
+        const root = parseFloat($("rootSize").value);
+        const out = $("output");
+        out.hidden = false;
+
+        if (!(root > 0) || !(maxVp > minVp) || !(minVp >= 0)) {
+          out.innerHTML =
+            "<p>Enter a root size above 0 and a max viewport larger than the min viewport.</p>";
+          return;
+        }
+
+        const minVpRem = minVp / root;
+        const maxVpRem = maxVp / root;
+
+        const unit = $("unit").value;
+        const prefix = varBase("baseName", "font");
+        const tokens = [];
+        for (const s of STEPS) {
+          const minPx = parseFloat($(`min-${s.key}`).value);
+          const maxPx = parseFloat($(`max-${s.key}`).value);
+          if (isNaN(minPx) || isNaN(maxPx)) continue;
+
+          const minRem = minPx / root;
+          const maxRem = maxPx / root;
+          const slope = (maxRem - minRem) / (maxVpRem - minVpRem);
+          const vw = slope * 100;
+          const intercept = minRem - slope * minVpRem;
+          const rVw = Number(vw.toFixed(4));
+          const rInt = Number(intercept.toFixed(4));
+          const rMin = Number(minRem.toFixed(4));
+          const rMax = Number(maxRem.toFixed(4));
+
+          // px output scales the rem values back by the root size
+          const k = unit === "px" ? root : 1;
+          const oMin = Number((minRem * k).toFixed(4));
+          const oMax = Number((maxRem * k).toFixed(4));
+          const oInt = Number((intercept * k).toFixed(4));
+          const clamp = `clamp(${oMin}${unit}, calc(${rVw}vw ${sign(oInt)} ${Math.abs(oInt)}${unit}), ${oMax}${unit})`;
+
+          const minCheck = (vw * (minVp / 100)) / root + intercept;
+          const maxCheck = (vw * (maxVp / 100)) / root + intercept;
+
+          tokens.push({
+            ...s,
+            name: `${prefix}-${s.key}`,
+            clamp,
+            minPx,
+            maxPx,
+            html: `
+<div class="step">
+  <strong>${s.label} (${minPx}px → ${maxPx}px)</strong><br><br>
+  <strong>1. Convert to rem</strong> (px ÷ root)<br>
+  ${minVp}px ÷ ${root} = ${minVpRem.toFixed(4)}rem, ${maxVp}px ÷ ${root} = ${maxVpRem.toFixed(4)}rem<br>
+  ${minPx}px ÷ ${root} = ${minRem.toFixed(4)}rem, ${maxPx}px ÷ ${root} = ${maxRem.toFixed(4)}rem<br><br>
+  <strong>2. Slope</strong> = (maxSize - minSize) ÷ (maxViewportRem - minViewportRem)<br>
+  = (${maxRem.toFixed(4)} - ${minRem.toFixed(4)}) ÷ (${maxVpRem.toFixed(4)} - ${minVpRem.toFixed(4)}) = ${slope.toFixed(6)}<br><br>
+  <strong>3. vw coefficient</strong> = slope × 100 = ${rVw}<br><br>
+  <strong>4. Intercept</strong> = minSize - (slope × minViewportRem)<br>
+  = ${minRem.toFixed(4)} - (${slope.toFixed(6)} × ${minVpRem.toFixed(4)}) = ${rInt}rem<br><br>
+  <strong>5. Clamp</strong><br>${clamp}<br><br>
+  <strong>Verification</strong><br>
+  At ${minVp}px: ${minCheck.toFixed(4)}rem ${Math.abs(minCheck - minRem) < 0.0001 ? "✅" : "❌"}<br>
+  At ${maxVp}px: ${maxCheck.toFixed(4)}rem ${Math.abs(maxCheck - maxRem) < 0.0001 ? "✅" : "❌"}
+</div>`,
+          });
+        }
+
+        const wrap = $("rootWrap")?.checked ?? true;
+        const vars = tokens.map((t) => `  ${t.name}: ${t.clamp};`).join("\n");
+        const css = wrap ? `:root {\n${vars}\n}` : vars;
+
+        out.innerHTML = `
+<h2>Generated Font Sizes</h2>
+<label><input type="checkbox" id="rootWrap" ${wrap ? "checked" : ""}> :root wrapper</label>
+<div class="copy-box">
+  <pre id="cssOutput"></pre>
+  <button type="button" id="copyBtn">Copy</button>
+</div>
+
+<h2>Preview</h2>
+<div id="preview">
+${tokens
+  .map(
+    (t) =>
+      `<div class="type-sample" style="font-size:${t.clamp};line-height:1.2">${t.label}</div>`,
+  )
+  .join("")}
+</div>
+
+<details class="accordion">
+  <summary>Equation Breakdown</summary>
+  <div class="accordion__body">
+    ${tokens.map((t) => t.html).join("")}
+    <h3>Pattern</h3>
+    <pre>
+px → rem = px ÷ rootSize
+
+slope =
+(maxSize - minSize) /
+(maxViewportRem - minViewportRem)
+
+vwCoefficient =
+slope × 100
+
+intercept =
+minSize - (slope × minViewportRem)
+
+clamp(
+    minSize,
+    calc(vwCoefficientvw + intercept),
+    maxSize
+)</pre>
+  </div>
+</details>`;
+
+        $("cssOutput").textContent = css;
+        $("rootWrap").addEventListener("change", generate);
+        $("copyBtn").addEventListener("click", async (e) => {
+          const btn = e.currentTarget;
+          try {
+            await navigator.clipboard.writeText(css);
+          } catch {
+            const t = document.createElement("textarea");
+            t.value = css;
+            document.body.appendChild(t);
+            t.select();
+            document.execCommand("copy");
+            t.remove();
+          }
+          btn.textContent = "Copied";
+          setTimeout(() => (btn.textContent = "Copy"), 1500);
+        });
+      }
+
+      $("generate").addEventListener("click", generate);
+      $("preset").value = "utopia";
+      applyPreset("utopia");
+    </script>
+  </body>
+</html>
