@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./clampCalculator/basicSystem/index.html",
   "./clampCalculator/advancedSystem/index.html",
   "./manifest.webmanifest",
+  "./assets/favicon.ico",
   "./assets/css/style.css",
   "./assets/js/pwa.js",
   "./assets/pwa-icons/toolkit-192.png",
