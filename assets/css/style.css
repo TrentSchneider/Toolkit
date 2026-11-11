@@ -561,3 +561,50 @@ pre,
   margin: 0.25rem 0 0.75rem;
   color: var(--text);
 }
+
+.typography-options {
+  margin: 0.75rem 0 1rem;
+}
+
+.typography-options + label {
+  display: block;
+  margin-top: 0.75rem;
+}
+
+.option-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.margin-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.margin-fields label {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.preview-toggle {
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.preview-sample {
+  display: flow-root;
+  border-bottom: 1px solid var(--muted);
+}
+
+.preview-sample:first-child {
+  border-top: 1px solid var(--muted);
+}
+
+.preview-sample--margin {
+  background: rgb(255 166 75 / 35%);
+}
+
+.type-sample--line-height {
+  background: rgb(112 200 255 / 35%);
+}

@@ -101,6 +101,39 @@
         </div>
       </div>
 
+      <div class="section">
+        <h3>Optional Typography</h3>
+        <label><input type="checkbox" id="includeLineHeight" /> Generate line heights</label>
+        <div id="lineHeightOptions" class="typography-options" hidden>
+          <div class="field-grid">
+            <label>Line-height multiplier
+              <input type="number" id="lineHeight" value="1.2" min="0.01" step="0.01" />
+            </label>
+          </div>
+          <p class="option-note">Applied to every font as an em value (for example, 1.2 produces 1.2em).</p>
+        </div>
+        <label><input type="checkbox" id="includeMargins" /> Generate top and bottom margins</label>
+        <div id="marginOptions" class="typography-options" hidden>
+          <div class="field-grid">
+            <label>Margin values
+              <select id="marginMode">
+                <option value="preset">Use font preset margins</option>
+                <option value="custom">Custom fluid margins</option>
+              </select>
+            </label>
+            <label>Margin variable base name
+              <input type="text" id="marginBaseName" value="margin" spellcheck="false" />
+            </label>
+          </div>
+          <p id="marginNote" class="option-note"></p>
+          <p class="option-note">Preset references: <a href="https://getbootstrap.com/docs/5.3/content/reboot/#headings">Bootstrap Reboot</a> and <a href="https://tailwindcss.com/docs/preflight">Tailwind Preflight</a>.</p>
+          <div id="marginInputs" hidden>
+            <p class="option-note">Enter non-negative pixel values at the minimum and maximum viewports.</p>
+            <div id="margins"></div>
+          </div>
+        </div>
+      </div>
+
       <button id="generate" class="generate-button">Generate</button>
 
       <div id="output" class="output" hidden></div>
@@ -194,6 +227,39 @@
         </div>`,
       ).join("");
 
+      $("margins").innerHTML = STEPS.map(
+        (s) => `
+        <div class="form-group">
+          <strong>${s.label}</strong>
+          <div class="margin-fields">
+            ${["top", "bottom"].map((side) => `
+              <label>${side === "top" ? "Top" : "Bottom"} min (px)
+                <input type="number" id="margin-${s.key}-${side}-min" aria-label="${s.label} ${side} margin min px" min="0" step="0.01" value="0" />
+              </label>
+              <label>${side === "top" ? "Top" : "Bottom"} max (px)
+                <input type="number" id="margin-${s.key}-${side}-max" aria-label="${s.label} ${side} margin max px" min="0" step="0.01" value="0" />
+              </label>`).join("")}
+          </div>
+        </div>`,
+      ).join("");
+
+      const previewColors = { lineHeight: false, margins: false };
+      let rootWrapper = true;
+
+      function updateOptions() {
+        $("lineHeightOptions").hidden = !$("includeLineHeight").checked;
+        $("marginOptions").hidden = !$("includeMargins").checked;
+        $("marginInputs").hidden = $("marginMode").value !== "custom";
+        const preset = $("preset").value;
+        $("marginNote").textContent = $("marginMode").value === "custom"
+          ? "Custom values interpolate between the viewport endpoints."
+          : preset === "bootstrap"
+            ? "Bootstrap Reboot: zero top margin; bottom margin is 1rem for paragraphs and 0.5rem for headings."
+            : preset === "tailwind"
+              ? "Tailwind Preflight removes the default margins from paragraphs and headings."
+              : "Suggested fallback: zero top margin; 1rem bottom for base text and 0.5rem for headings. This is not a preset standard.";
+      }
+
       Object.entries(PRESETS).forEach(([key, p]) => {
         $("preset").add(new Option(p.label, key));
       });
@@ -201,6 +267,7 @@
       function applyPreset(key) {
         const p = PRESETS[key];
         $("presetNote").textContent = p ? p.note : "Enter your own values.";
+        updateOptions();
         if (!p) return;
         $("minViewport").value = p.viewport[0];
         $("maxViewport").value = p.viewport[1];
@@ -220,10 +287,12 @@
         if (
           e.target.id !== "preset" &&
           !["unit", "baseName"].includes(e.target.id) &&
-          e.target.closest("#sizes, .field-grid")
+          (e.target.closest("#sizes") ||
+            ["minViewport", "maxViewport", "rootSize"].includes(e.target.id))
         ) {
           $("preset").value = "custom";
           $("presetNote").textContent = "Enter your own values.";
+          updateOptions();
         }
       });
 
@@ -243,6 +312,29 @@
         }),
       );
 
+      ["includeLineHeight", "includeMargins", "marginMode"].forEach((id) =>
+        $(id).addEventListener("change", () => {
+          updateOptions();
+          if (!$("output").hidden) generate();
+        }),
+      );
+      ["lineHeight", "marginBaseName", "margins"].forEach((id) =>
+        $(id).addEventListener("input", () => {
+          if (!$("output").hidden) generate();
+        }),
+      );
+
+      function fluidValue(min, max, minVp, maxVp, root, unit) {
+        const slope = (max - min) / (maxVp - minVp);
+        const intercept = (min - slope * minVp) / (unit === "rem" ? root : 1);
+        const divisor = unit === "rem" ? root : 1;
+        const round = (n) => Number(n.toFixed(4));
+        const start = round(Math.min(min, max) / divisor);
+        const end = round(Math.max(min, max) / divisor);
+        const offset = round(intercept);
+        return `clamp(${start}${unit}, calc(${round(slope * 100)}vw ${sign(offset)} ${Math.abs(offset)}${unit}), ${end}${unit})`;
+      }
+
       function generate() {
         const minVp = parseFloat($("minViewport").value);
         const maxVp = parseFloat($("maxViewport").value);
@@ -261,6 +353,39 @@
 
         const unit = $("unit").value;
         const prefix = varBase("baseName", "font");
+        const includeLineHeight = $("includeLineHeight").checked;
+        const includeMargins = $("includeMargins").checked;
+        const lineHeight = Number($("lineHeight").value);
+        if (includeLineHeight && (!$("lineHeight").value || !Number.isFinite(lineHeight) || lineHeight <= 0)) {
+          out.innerHTML = "<p role=\"alert\">Enter a line-height multiplier above 0.</p>";
+          return;
+        }
+        const marginPrefix = varBase("marginBaseName", "margin");
+        const margins = {};
+        if (includeMargins) {
+          for (const s of STEPS) {
+            margins[s.key] = {};
+            for (const side of ["top", "bottom"]) {
+              let min;
+              let max;
+              if ($("marginMode").value === "custom") {
+                const minInput = $(`margin-${s.key}-${side}-min`);
+                const maxInput = $(`margin-${s.key}-${side}-max`);
+                min = Number(minInput.value);
+                max = Number(maxInput.value);
+                if (!minInput.value || !maxInput.value || !Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max < 0) {
+                  out.innerHTML = `<p role="alert">Enter non-negative ${side} margin values for ${s.label} at both viewports.</p>`;
+                  return;
+                }
+              } else {
+                min = max = side === "top" || $("preset").value === "tailwind"
+                  ? 0
+                  : root * (s.key === "base" ? 1 : 0.5);
+              }
+              margins[s.key][side] = fluidValue(min, max, minVp, maxVp, root, unit);
+            }
+          }
+        }
         const tokens = [];
         for (const s of STEPS) {
           const minPx = parseFloat($(`min-${s.key}`).value);
@@ -312,24 +437,33 @@
           });
         }
 
-        const wrap = $("rootWrap")?.checked ?? true;
-        const vars = tokens.map((t) => `  ${t.name}: ${t.clamp};`).join("\n");
-        const css = wrap ? `:root {\n${vars}\n}` : vars;
+        const vars = tokens.flatMap((t) => [
+          `  ${t.name}: ${t.clamp};`,
+          ...(includeLineHeight ? [`  ${t.name}-line-height: ${lineHeight}em;`] : []),
+          ...(includeMargins ? ["top", "bottom"].map((side) =>
+            `  ${marginPrefix}-${t.key}-${side}: ${margins[t.key][side]};`) : []),
+        ]).join("\n");
+        const css = rootWrapper ? `:root {\n${vars}\n}` : vars;
 
         out.innerHTML = `
 <h2>Generated Font Sizes</h2>
-<label><input type="checkbox" id="rootWrap" ${wrap ? "checked" : ""}> :root wrapper</label>
+<label><input type="checkbox" id="rootWrap" ${rootWrapper ? "checked" : ""}> :root wrapper</label>
+${includeLineHeight || includeMargins ? `<p class="option-note">Use the generated variables in your font-size${includeLineHeight ? ", line-height" : ""}${includeMargins ? ", margin-top, and margin-bottom" : ""} declarations.${includeLineHeight ? " Apply line-height em values directly to each text element." : ""}</p>` : ""}
 <div class="copy-box">
   <pre id="cssOutput"></pre>
   <button type="button" id="copyBtn">Copy</button>
 </div>
 
 <h2>Preview</h2>
+${includeLineHeight ? `<label class="preview-toggle"><input type="checkbox" id="showLineHeight" ${previewColors.lineHeight ? "checked" : ""}> Highlight line-height area (blue)</label>` : ""}
+${includeMargins ? `<label class="preview-toggle"><input type="checkbox" id="showMargins" ${previewColors.margins ? "checked" : ""}> Highlight margin areas (orange)</label>` : ""}
 <div id="preview">
 ${tokens
   .map(
     (t) =>
-      `<div class="type-sample" style="font-size:${t.clamp};line-height:1.2">${t.label}</div>`,
+      `${includeMargins ? `<div class="preview-sample${previewColors.margins ? " preview-sample--margin" : ""}">` : ""}
+        <div class="type-sample${includeLineHeight && previewColors.lineHeight ? " type-sample--line-height" : ""}" style="font-size:${t.clamp};line-height:${includeLineHeight ? `${lineHeight}em` : "1.2"};${includeMargins ? `margin-top:${margins[t.key].top};margin-bottom:${margins[t.key].bottom};` : ""}">${t.label}</div>
+      ${includeMargins ? "</div>" : ""}`,
   )
   .join("")}
 </div>
@@ -361,7 +495,22 @@ clamp(
 </details>`;
 
         $("cssOutput").textContent = css;
-        $("rootWrap").addEventListener("change", generate);
+        $("rootWrap").addEventListener("change", (e) => {
+          rootWrapper = e.target.checked;
+          generate();
+        });
+        if (includeLineHeight) $("showLineHeight").addEventListener("change", (e) => {
+          previewColors.lineHeight = e.target.checked;
+          document.querySelectorAll("#preview .type-sample").forEach((sample) =>
+            sample.classList.toggle("type-sample--line-height", previewColors.lineHeight),
+          );
+        });
+        if (includeMargins) $("showMargins").addEventListener("change", (e) => {
+          previewColors.margins = e.target.checked;
+          document.querySelectorAll("#preview .preview-sample").forEach((sample) =>
+            sample.classList.toggle("preview-sample--margin", previewColors.margins),
+          );
+        });
         $("copyBtn").addEventListener("click", async (e) => {
           const btn = e.currentTarget;
           try {
