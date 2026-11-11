@@ -245,6 +245,8 @@
 
       const previewColors = { lineHeight: false, margins: false };
       let rootWrapper = true;
+      let previewViewport;
+      let previewObserver;
 
       function updateOptions() {
         $("lineHeightOptions").hidden = !$("includeLineHeight").checked;
@@ -335,7 +337,83 @@
         return `clamp(${start}${unit}, calc(${round(slope * 100)}vw ${sign(offset)} ${Math.abs(offset)}${unit}), ${end}${unit})`;
       }
 
+      function previewValue(value, root) {
+        return value
+          .replace(/(-?\d*\.?\d+)rem\b/g, (_, number) => `${Number(number) * root}px`)
+          .replace(/vw\b/g, "cqw");
+      }
+
+      function setupPreview(minVp, maxVp) {
+        const stage = $("previewStage");
+        const frame = $("previewFrame");
+        const handle = $("previewHandle");
+        const readout = $("previewWidth");
+        let scale = 1;
+
+        previewViewport = Math.min(maxVp, Math.max(minVp, previewViewport ?? maxVp));
+
+        function renderPreview() {
+          scale = Math.min(1, Math.max(0, stage.clientWidth - 16) / maxVp);
+          frame.style.width = `${previewViewport}px`;
+          frame.style.transform = `scale(${scale})`;
+          stage.style.height = `${Math.max(40, frame.offsetHeight * scale)}px`;
+          handle.style.left = `${previewViewport * scale}px`;
+          handle.setAttribute("aria-valuenow", previewViewport);
+          handle.setAttribute("aria-valuetext", `${previewViewport} pixels`);
+          readout.textContent = `${previewViewport} px`;
+        }
+
+        function setViewport(value) {
+          previewViewport = Math.min(maxVp, Math.max(minVp, Math.round(value * 100) / 100));
+          renderPreview();
+        }
+
+        handle.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0 || !scale) return;
+          event.preventDefault();
+          const startX = event.clientX;
+          const startViewport = previewViewport;
+          handle.setPointerCapture(event.pointerId);
+          function move(moveEvent) {
+            setViewport(startViewport + (moveEvent.clientX - startX) / scale);
+          }
+          function end() {
+            handle.removeEventListener("pointermove", move);
+            handle.removeEventListener("pointerup", end);
+            handle.removeEventListener("pointercancel", end);
+          }
+          handle.addEventListener("pointermove", move);
+          handle.addEventListener("pointerup", end);
+          handle.addEventListener("pointercancel", end);
+        });
+        handle.addEventListener("keydown", (event) => {
+          const step = event.shiftKey ? 10 : 1;
+          const values = {
+            ArrowLeft: previewViewport - step,
+            ArrowDown: previewViewport - step,
+            ArrowRight: previewViewport + step,
+            ArrowUp: previewViewport + step,
+            PageDown: previewViewport - (maxVp - minVp) / 10,
+            PageUp: previewViewport + (maxVp - minVp) / 10,
+            Home: minVp,
+            End: maxVp,
+          };
+          if (Object.hasOwn(values, event.key)) {
+            event.preventDefault();
+            setViewport(values[event.key]);
+          }
+        });
+        previewObserver = new ResizeObserver(renderPreview);
+        previewObserver.observe(stage);
+        previewObserver.observe(frame);
+        renderPreview();
+      }
+
       function generate() {
+        if (previewObserver) {
+          previewObserver.disconnect();
+          previewObserver = undefined;
+        }
         const minVp = parseFloat($("minViewport").value);
         const maxVp = parseFloat($("maxViewport").value);
         const root = parseFloat($("rootSize").value);
@@ -457,15 +535,24 @@ ${includeLineHeight || includeMargins ? `<p class="option-note">Use the generate
 <h2>Preview</h2>
 ${includeLineHeight ? `<label class="preview-toggle"><input type="checkbox" id="showLineHeight" ${previewColors.lineHeight ? "checked" : ""}> Highlight line-height area (blue)</label>` : ""}
 ${includeMargins ? `<label class="preview-toggle"><input type="checkbox" id="showMargins" ${previewColors.margins ? "checked" : ""}> Highlight margin areas (orange)</label>` : ""}
+<div class="preview-toolbar">
+  <span>Emulated viewport: <strong id="previewWidth"></strong></span>
+  <span>Drag the right edge or use arrow keys to resize. Preview scales to fit.</span>
+</div>
+<div id="previewStage" class="preview-stage">
+<div id="previewFrame" class="preview-frame">
 <div id="preview">
 ${tokens
   .map(
     (t) =>
-      `${includeMargins ? `<div class="preview-sample${previewColors.margins ? " preview-sample--margin" : ""}">` : ""}
-        <div class="type-sample${includeLineHeight && previewColors.lineHeight ? " type-sample--line-height" : ""}" style="font-size:${t.clamp};line-height:${includeLineHeight ? `${lineHeight}em` : "1.2"};${includeMargins ? `margin-top:${margins[t.key].top};margin-bottom:${margins[t.key].bottom};` : ""}">${t.label}</div>
-      ${includeMargins ? "</div>" : ""}`,
+      `<div class="preview-sample${includeMargins && previewColors.margins ? " preview-sample--margin" : ""}">
+        <div class="type-sample${includeLineHeight && previewColors.lineHeight ? " type-sample--line-height" : ""}" style="font-size:${previewValue(t.clamp, root)};line-height:${includeLineHeight ? `${lineHeight}em` : "1.2"};${includeMargins ? `margin-top:${previewValue(margins[t.key].top, root)};margin-bottom:${previewValue(margins[t.key].bottom, root)};` : ""}">${t.label}</div>
+      </div>`,
   )
   .join("")}
+</div>
+</div>
+<button type="button" id="previewHandle" class="preview-handle" role="slider" aria-label="Emulated viewport width" aria-orientation="horizontal" aria-valuemin="${minVp}" aria-valuemax="${maxVp}"><span aria-hidden="true"></span></button>
 </div>
 
 <details class="accordion">
@@ -495,6 +582,7 @@ clamp(
 </details>`;
 
         $("cssOutput").textContent = css;
+        setupPreview(minVp, maxVp);
         $("rootWrap").addEventListener("change", (e) => {
           rootWrapper = e.target.checked;
           generate();
