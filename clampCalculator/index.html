@@ -58,10 +58,6 @@
             >Spacing variable base name
             <input type="text" id="spaceName" value="space" spellcheck="false" />
           </label>
-          <label
-            >Typography variable base name
-            <input type="text" id="typeName" value="text" spellcheck="false" />
-          </label>
         </div>
       </div>
 
@@ -97,7 +93,6 @@
             <h3>Compact</h3>
             <ul>
               <li>Reduces spacing growth (0.85×)</li>
-              <li>Reduces typography growth (0.9×)</li>
               <li>Flatter, denser scaling curve</li>
             </ul>
 
@@ -110,7 +105,6 @@
             <h3>Wide</h3>
             <ul>
               <li>Increases spacing growth (1.2×)</li>
-              <li>Increases typography growth (1.25×)</li>
               <li>More aggressive responsive scaling</li>
             </ul>
 
@@ -128,15 +122,10 @@
       // ----------------------
       // STATE
       // ----------------------
-      const uiState = {
-        spaceRoot: true,
-        typeRoot: true,
-      };
-
       const presets = {
-        compact: { space: 0.85, type: 0.9 },
-        balanced: { space: 1, type: 1 },
-        wide: { space: 1.2, type: 1.25 },
+        compact: { space: 0.85 },
+        balanced: { space: 1 },
+        wide: { space: 1.2 },
       };
 
       // init
@@ -189,7 +178,6 @@
         const rows = [...document.querySelectorAll("#points .row")];
         const u = unit();
         const spaceBase = varBase("spaceName", "space");
-        const typeBase = varBase("typeName", "text");
 
         // `rem` holds the viewport position in the selected unit (px or rem)
         const points = rows
@@ -200,9 +188,7 @@
           }))
           .filter((p) => !isNaN(p.px) && !isNaN(p.val) && !isNaN(p.rem))
           .sort((a, b) => a.px - b.px);
-
         let spaceTokens = [];
-        let typeTokens = [];
 
         for (let i = 0; i < points.length - 1; i++) {
           const a = points[i];
@@ -266,81 +252,21 @@ vw = ${vwSpace.toFixed(4)}vw`,
               ],
             },
           });
-
-          // =========================
-          // TYPOGRAPHY SYSTEM
-          // =========================
-          const aT = a.val * preset.type;
-          const bT = b.val * preset.type;
-
-          const mType = (bT - aT) / (b.rem - a.rem);
-          const bType = aT - mType * a.rem;
-          const vwType = mType * 100;
-
-          typeTokens.push({
-            name: `${typeBase}-${i + 1}`,
-            clamp: `clamp(
-  ${aT.toFixed(2)}${u},
-  calc(${vwType.toFixed(4)}vw + ${bType.toFixed(4)}${u}),
-  ${bT.toFixed(2)}${u}
-)`,
-
-            breakdown: {
-              steps: [
-                {
-                  title: "Typography scaling",
-                  formula: "value × typeMultiplier",
-                  explanation: `A: ${a.val} × ${preset.type} = ${aT.toFixed(2)}${u}
-B: ${b.val} × ${preset.type} = ${bT.toFixed(2)}${u}`,
-                },
-
-                {
-                  title: "Slope (m)",
-                  formula: "m = (y₂ - y₁) ÷ (x₂ - x₁)",
-                  explanation: `m = (${bT.toFixed(2)} - ${aT.toFixed(2)}) ÷ (${b.rem.toFixed(4)} - ${a.rem.toFixed(4)})
-m = ${mType.toFixed(6)}`,
-                },
-
-                {
-                  title: "Intercept (b)",
-                  formula: "b = y₁ - m × x₁",
-                  explanation: `b = ${aT.toFixed(2)} - (${mType.toFixed(6)} × ${a.rem.toFixed(4)})
-b = ${bType.toFixed(6)}`,
-                },
-
-                {
-                  title: "VW conversion",
-                  formula: "vw = m × 100",
-                  explanation: `vw = ${mType.toFixed(6)} × 100
-vw = ${vwType.toFixed(4)}vw`,
-                },
-
-                {
-                  title: "Final clamp",
-                  formula: "clamp(min, calc(vw + b), max)",
-                  explanation: `clamp(${aT.toFixed(2)}${u}, calc(${vwType.toFixed(4)}vw + ${bType.toFixed(6)}${u}), ${bT.toFixed(2)}${u})`,
-                },
-              ],
-            },
-          });
         }
 
-        render(spaceTokens, typeTokens);
+        render(spaceTokens);
       }
       // ----------------------
       // RENDER
       // ----------------------
-      function render(space, type) {
+      function render(space) {
         const spaceWrap = document.getElementById("spaceRoot")?.checked ?? true;
-        const typeWrap = document.getElementById("typeRoot")?.checked ?? true;
 
         const spaceCSS = space
           .map((t) => `  ${t.name}: ${t.clamp};`)
           .join("\n");
-        const typeCSS = type.map((t) => `  ${t.name}: ${t.clamp};`).join("\n");
 
         const spaceOut = spaceWrap ? `:root {\n${spaceCSS}\n}` : spaceCSS;
-        const typeOut = typeWrap ? `:root {\n${typeCSS}\n}` : typeCSS;
 
         document.getElementById("output").innerHTML = `
 
@@ -350,14 +276,6 @@ vw = ${vwType.toFixed(4)}vw`,
 <div class="copy-box">
 <pre id="spaceCode">${spaceOut}</pre>
 <button onclick="copy('spaceCode')">Copy</button>
-</div>
-
-<h2>Typography Tokens</h2>
-<label><input type="checkbox" id="typeRoot" ${typeWrap ? "checked" : ""} onchange="generate()"> :root wrapper</label>
-
-<div class="copy-box">
-<pre id="typeCode">${typeOut}</pre>
-<button onclick="copy('typeCode')">Copy</button>
 </div>
 
 <details class="accordion">
@@ -384,34 +302,6 @@ Formula: <code>${step.formula}</code><br>
 `,
   )
   .join("")}
-
-</div>
-</details>
-
-<details class="accordion">
-<summary>Typography Breakdown</summary>
-<div class="accordion__body">
-
-${type
-  .map(
-    (t, i) => `
-<div class="section">
-<strong>Text ${i + 1}</strong><br><br>
-
-${t.breakdown.steps
-  .map(
-    (step) => `
-<b>${step.title}</b><br>
-Formula: <code>${step.formula}</code><br>
-<pre>${step.explanation}</pre><br>
-`,
-  )
-  .join("")}
-
-</div>
-`,
-  )
-  .join("")}
 </div>
 </details>
 `;
@@ -420,11 +310,6 @@ Formula: <code>${step.formula}</code><br>
       // ----------------------
       // UI helpers
       // ----------------------
-      function toggle(key, val) {
-        uiState[key] = val;
-        generate();
-      }
-
       function presetSelect() {
         return document.getElementById("preset");
       }
