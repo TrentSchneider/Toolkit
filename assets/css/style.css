@@ -607,20 +607,14 @@ pre,
   font-family: var(--mono);
 }
 
-.preview-stage {
+.preview-ruler {
   position: relative;
-}
-
-.preview-frame {
-  position: absolute;
-  top: 0;
-  left: 0;
-  display: flow-root;
-  overflow: hidden;
-  container-type: inline-size;
-  outline: 1px solid var(--border);
-  background: var(--panel);
-  transform-origin: top left;
+  height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  touch-action: none;
+  cursor: pointer;
 }
 
 .preview-handle {
@@ -628,7 +622,8 @@ pre,
   z-index: 1;
   top: 0;
   bottom: 0;
-  width: 16px;
+  left: var(--preview-position);
+  width: 28px;
   min-height: 40px;
   padding: 0;
   border: 0;
@@ -636,7 +631,7 @@ pre,
   background: transparent;
   cursor: ew-resize;
   touch-action: none;
-  transform: translateX(-50%);
+  transform: translateX(var(--preview-offset));
 }
 
 .preview-handle span {
@@ -654,7 +649,28 @@ pre,
 
 .preview-handle:hover,
 .preview-handle:active {
-  transform: translateX(-50%);
+  transform: translateX(var(--preview-offset));
+}
+
+.preview-limits {
+  display: flex;
+  justify-content: space-between;
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+}
+
+.preview-stage {
+  overflow-x: auto;
+}
+
+.preview-frame {
+  display: flow-root;
+  overflow: hidden;
+  container-type: inline-size;
+  outline: 1px solid var(--border);
+  background: var(--panel);
 }
 
 .preview-sample {

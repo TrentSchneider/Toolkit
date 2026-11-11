@@ -1,4 +1,4 @@
-const CACHE_NAME = "toolkit-pwa-v7";
+const CACHE_NAME = "toolkit-pwa-v9";
 const APP_SHELL = [
   "./",
   "./index.html",

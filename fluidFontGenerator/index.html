@@ -246,7 +246,6 @@
       const previewColors = { lineHeight: false, margins: false };
       let rootWrapper = true;
       let previewViewport;
-      let previewObserver;
 
       function updateOptions() {
         $("lineHeightOptions").hidden = !$("includeLineHeight").checked;
@@ -344,20 +343,18 @@
       }
 
       function setupPreview(minVp, maxVp) {
-        const stage = $("previewStage");
+        const ruler = $("previewRuler");
         const frame = $("previewFrame");
         const handle = $("previewHandle");
         const readout = $("previewWidth");
-        let scale = 1;
 
         previewViewport = Math.min(maxVp, Math.max(minVp, previewViewport ?? maxVp));
 
         function renderPreview() {
-          scale = Math.min(1, Math.max(0, stage.clientWidth - 16) / maxVp);
           frame.style.width = `${previewViewport}px`;
-          frame.style.transform = `scale(${scale})`;
-          stage.style.height = `${Math.max(40, frame.offsetHeight * scale)}px`;
-          handle.style.left = `${previewViewport * scale}px`;
+          const fraction = (previewViewport - minVp) / (maxVp - minVp);
+          ruler.style.setProperty("--preview-position", `${fraction * 100}%`);
+          ruler.style.setProperty("--preview-offset", `${-fraction * 100}%`);
           handle.setAttribute("aria-valuenow", previewViewport);
           handle.setAttribute("aria-valuetext", `${previewViewport} pixels`);
           readout.textContent = `${previewViewport} px`;
@@ -368,23 +365,32 @@
           renderPreview();
         }
 
-        handle.addEventListener("pointerdown", (event) => {
-          if (event.button !== 0 || !scale) return;
+        ruler.addEventListener("pointerdown", (event) => {
+          if (event.button !== 0) return;
           event.preventDefault();
+          handle.focus();
+          const bounds = ruler.getBoundingClientRect();
+          const travel = bounds.width - handle.offsetWidth;
+          if (travel <= 0) return;
+          if (!handle.contains(event.target)) {
+            setViewport(minVp + (event.clientX - bounds.left - handle.offsetWidth / 2) / travel * (maxVp - minVp));
+          }
           const startX = event.clientX;
           const startViewport = previewViewport;
-          handle.setPointerCapture(event.pointerId);
+          ruler.setPointerCapture(event.pointerId);
           function move(moveEvent) {
-            setViewport(startViewport + (moveEvent.clientX - startX) / scale);
+            setViewport(startViewport + (moveEvent.clientX - startX) / travel * (maxVp - minVp));
           }
           function end() {
-            handle.removeEventListener("pointermove", move);
-            handle.removeEventListener("pointerup", end);
-            handle.removeEventListener("pointercancel", end);
+            ruler.removeEventListener("pointermove", move);
+            ruler.removeEventListener("pointerup", end);
+            ruler.removeEventListener("pointercancel", end);
+            ruler.removeEventListener("lostpointercapture", end);
           }
-          handle.addEventListener("pointermove", move);
-          handle.addEventListener("pointerup", end);
-          handle.addEventListener("pointercancel", end);
+          ruler.addEventListener("pointermove", move);
+          ruler.addEventListener("pointerup", end);
+          ruler.addEventListener("pointercancel", end);
+          ruler.addEventListener("lostpointercapture", end);
         });
         handle.addEventListener("keydown", (event) => {
           const step = event.shiftKey ? 10 : 1;
@@ -403,17 +409,10 @@
             setViewport(values[event.key]);
           }
         });
-        previewObserver = new ResizeObserver(renderPreview);
-        previewObserver.observe(stage);
-        previewObserver.observe(frame);
         renderPreview();
       }
 
       function generate() {
-        if (previewObserver) {
-          previewObserver.disconnect();
-          previewObserver = undefined;
-        }
         const minVp = parseFloat($("minViewport").value);
         const maxVp = parseFloat($("maxViewport").value);
         const root = parseFloat($("rootSize").value);
@@ -537,7 +536,13 @@ ${includeLineHeight ? `<label class="preview-toggle"><input type="checkbox" id="
 ${includeMargins ? `<label class="preview-toggle"><input type="checkbox" id="showMargins" ${previewColors.margins ? "checked" : ""}> Highlight margin areas (orange)</label>` : ""}
 <div class="preview-toolbar">
   <span>Emulated viewport: <strong id="previewWidth"></strong></span>
-  <span>Drag the right edge or use arrow keys to resize. Preview scales to fit.</span>
+  <span>Drag the control or use arrow keys to resize. The preview is actual size; scroll it horizontally to see the rest.</span>
+</div>
+<div id="previewRuler" class="preview-ruler">
+  <button type="button" id="previewHandle" class="preview-handle" role="slider" aria-label="Emulated viewport width" aria-orientation="horizontal" aria-valuemin="${minVp}" aria-valuemax="${maxVp}"><span aria-hidden="true"></span></button>
+</div>
+<div class="preview-limits" aria-hidden="true">
+  <span>${minVp} px</span><span>${maxVp} px</span>
 </div>
 <div id="previewStage" class="preview-stage">
 <div id="previewFrame" class="preview-frame">
@@ -552,7 +557,6 @@ ${tokens
   .join("")}
 </div>
 </div>
-<button type="button" id="previewHandle" class="preview-handle" role="slider" aria-label="Emulated viewport width" aria-orientation="horizontal" aria-valuemin="${minVp}" aria-valuemax="${maxVp}"><span aria-hidden="true"></span></button>
 </div>
 
 <details class="accordion">
